@@ -1,0 +1,13 @@
+# IntelliJ
+.idea
+out/
+.idea_modules/
+*.iml
+
+# Gradle
+.gradle
+build/
+
+# Kotlin
+# Compiled class file
+*.class
