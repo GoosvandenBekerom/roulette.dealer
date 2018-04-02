@@ -37,6 +37,7 @@ compileTestKotlin {
 
 repositories {
 	mavenCentral()
+    maven { url 'https://jitpack.io' }
 }
 
 
@@ -45,5 +46,6 @@ dependencies {
 	compile('org.springframework.boot:spring-boot-starter-data-mongodb')
 	compile("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 	compile("org.jetbrains.kotlin:kotlin-reflect")
+    compile('com.github.GoosvandenBekerom:roulette.core:51dd5d6bb0')
 	testCompile('org.springframework.boot:spring-boot-starter-test')
 }
