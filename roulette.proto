@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+option java_outer_classname = "RouletteProto";
+
+message NewPlayerRequest {
+  string name = 1;
+}
+
+message NewPlayerResponse {
+  int64 id = 1;
+}
+
+message BuyInRequest {
+  int64 player_id = 1;
+  int32 amount = 2;
+}
+
+message BetRequest {
+  int64 player_id = 1;
+  int64 game_id = 2;
+  int32 amount = 3;
+  BetType type = 4;
+  repeated int32 number = 5;
+  enum BetType {
+    ODD = 0;
+    EVEN = 1;
+    RED = 3;
+    BLACK = 4;
+    FIRST_HALf = 5;
+    SECOND_HALF = 6;
+    FIRST_DOZEN = 7;
+    SECOND_DOZEN = 8;
+    THIRD_DOZEN = 9;
+    FIRST_COLUMN = 10;
+    SECOND_COLUMN = 11;
+    THIRD_COLUMN = 12;
+    NUMBER = 13;
+    TWO_NUMBER = 14;
+    THREE_NUMBER = 15;
+    FOUR_NUMBER = 16;
+    FIVE_NUMBER = 17;
+    SIX_NUMBER = 18;
+  }
+}
+
+message NewGame {
+  int64 id = 1;
+}
+
+message NewResult {
+  int64 game_id = 1;
+  int32 number = 2;
+  string color = 3;
+}
+
+message PlayerAmountUpdate {
+  int64 player_id = 1;
+  int32 amount = 2;
+}
