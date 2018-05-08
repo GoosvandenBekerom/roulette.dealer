@@ -11,21 +11,27 @@ import org.springframework.stereotype.Component
 
 @Component
 class ProtoMessageConverter : AbstractMessageConverter() {
-    override fun createMessage(obj: Any, properties: MessageProperties): Message {
-        println("CONVERTER: converting message to proto")
-        obj as GeneratedMessageV3
-        val bytes = obj.toByteArray()
+    override fun createMessage(o: Any, properties: MessageProperties): Message {
+        val obj = if (o is GeneratedMessageV3) RouletteMessage(o) else o as RouletteMessage
+
+        val bytes = obj.message.toByteArray()
         properties.contentLength = bytes.size.toLong()
         properties.contentType = ProtoMessage.MEDIA_TYPE
-        properties.setHeader(ProtoMessage.TYPE_KEY, obj::class.java.simpleName)
+        properties.setHeader(ProtoMessage.TYPE_KEY, obj.message::class.java.simpleName)
+
+        if (!obj.correlationId.isEmpty())
+            properties.correlationId = obj.correlationId
+
         return Message(bytes, properties)
     }
 
-    override fun fromMessage(message: Message): com.google.protobuf.Message {
+    override fun fromMessage(message: Message): Request {
+        val replyTo = message.messageProperties.replyTo
+        val correlation = message.messageProperties.correlationId
         return when(message.messageProperties.headers[ProtoMessage.TYPE_KEY]) {
-            NewPlayerRequest::class.java.simpleName -> NewPlayerRequest.parseFrom(message.body)
-            BuyInRequest::class.java.simpleName -> BuyInRequest.parseFrom(message.body)
-            BetRequest::class.java.simpleName -> BetRequest.parseFrom(message.body)
+            NewPlayerRequest::class.java.simpleName -> Request(NewPlayerRequest.parseFrom(message.body), replyTo, correlation)
+            BuyInRequest::class.java.simpleName -> Request(BuyInRequest.parseFrom(message.body), replyTo, correlation)
+            BetRequest::class.java.simpleName -> Request(BetRequest.parseFrom(message.body), replyTo, correlation)
             else -> throw UnsupportedMessageException(message)
         }
     }
