@@ -2,6 +2,7 @@ package com.goosvandenbekerom.roulette.dealer
 
 import com.google.protobuf.GeneratedMessageV3
 import com.goosvandenbekerom.roulette.core.BetType
+import com.goosvandenbekerom.roulette.core.Game
 import com.goosvandenbekerom.roulette.core.Player
 import com.goosvandenbekerom.roulette.proto.RouletteProto.*
 import org.springframework.amqp.rabbit.annotation.RabbitListener
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Component
 @Component
 class MessageHandler {
     @Autowired lateinit var state: State
+    @Autowired lateinit var game: Game
     @Autowired lateinit var rabbit: RabbitTemplate
 
     @RabbitListener(queues = [RabbitConfig.queueName], containerFactory = "listenerFactory")
@@ -23,43 +25,44 @@ class MessageHandler {
         }
     }
 
+    // TODO: Add some kind of error handling, maybe send it back over the exchange?
+
     private fun handleNewPlayerRequest(request: Request) {
-        request.message as NewPlayerRequest
-        println("Received new player request: username = ${request.message.name}")
-        val player = Player(request.message.name, "")
+        val msg = request.message as NewPlayerRequest
+        println("Received new player request: username = ${msg.name}")
+        val player = Player(msg.name, "")
         val response = NewPlayerResponse.newBuilder()
-        response.id = player.hashCode().toLong()
-        state.connectPlayer(player)
-        println("Responding with id ${response.id}")
+        response.id = state.connectPlayer(player)
+        println("Responding to player ${msg.name} with id ${response.id}")
         reply(request, response.build())
     }
 
     private fun handleBuyInRequest(request: Request) {
-        request.message as BuyInRequest
-        println("Received buyin request: player id = ${request.message.playerId} - amount = ${request.message.amount}")
-        val player = state.getPlayerById(request.message.playerId)
-        player.addChips(request.message.amount)
-        val response = PlayerAmountUpdate.newBuilder()
-        response.playerId = player.hashCode().toLong()
-        response.amount = player.chipAmount
-        println("responding with player amount update")
-        reply(request, response.build())
+        val msg = request.message as BuyInRequest
+        println("Received buyin request: player id = ${msg.playerId}, amount = ${msg.amount}")
+        val player = state.getPlayerById(msg.playerId)
+        player.addChips(msg.amount)
+        replyPlayerAmountUpdate(request, msg.playerId, player.chipAmount)
     }
 
     private fun handleBetRequest(request: Request) {
-        request.message as BetRequest
-        //val game = state.getGameById(request.message.gameId)
+        val msg = request.message as BetRequest
+        println("Received bet request: player = ${msg.playerId}, amount = ${msg.amount}, type = ${msg.type}")
         val player = state.getPlayerById(request.message.playerId)
-        //game.placeBet(player, request.message.amount, protoToBetType(request.message.type, *request.message.numberList.toIntArray()))
-        val response = PlayerAmountUpdate.newBuilder()
-        response.playerId = player.hashCode().toLong()
-        response.amount = player.chipAmount
-        println("responding with player amount update")
-        reply(request, response.build())
+        game.placeBet(player, msg.amount, protoToBetType(msg.type, *msg.numberList.toIntArray()))
+        replyPlayerAmountUpdate(request, msg.playerId, player.chipAmount)
     }
 
     private fun reply(request: Request, response: GeneratedMessageV3) {
         rabbit.convertAndSend(request.replyTo, RouletteMessage(response, request.correlationKey))
+    }
+
+    private fun replyPlayerAmountUpdate(request: Request, playerId: Long, amount: Int) {
+        val response = PlayerAmountUpdate.newBuilder()
+        response.playerId = playerId
+        response.amount = amount
+        println("responding to player $playerId with amount update ($amount)")
+        reply(request, response.build())
     }
 
     private fun protoToBetType(type: BetRequest.BetType, vararg numbers: Int): BetType {

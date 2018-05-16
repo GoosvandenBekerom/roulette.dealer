@@ -17,6 +17,7 @@ class RabbitConfig {
         const val queueName = "roulette-dealer"
         const val topicExchangeName = "roulette-dealer-exchange"
         const val routingKey = "dealer"
+        const val UPDATE_PLAYER_ROUTING_KEY = "game.update"
     }
 
     @Bean

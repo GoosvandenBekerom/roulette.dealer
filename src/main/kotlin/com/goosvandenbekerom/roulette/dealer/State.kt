@@ -7,11 +7,15 @@ import org.springframework.stereotype.Component
 
 @Component
 class State {
-    private val games = mutableSetOf<Game>()
+    companion object {
+        var counter: Long = 0
+    }
     private val connectedPlayers = mutableMapOf<Long, Player>()
 
-    fun createGame(minimumBet: Int) = Game(0, minimumBet)
-    fun getGameById(id: Long): Game = games.find { g -> g.id == id } ?: throw GameNotFoundException(id)
-    fun connectPlayer(p: Player)= connectedPlayers.put(p.hashCode().toLong(), p)
+    fun connectPlayer(p: Player): Long {
+        val id = ++counter
+        connectedPlayers[id] = p
+        return id
+    }
     fun getPlayerById(id: Long): Player = connectedPlayers[id] ?: throw PlayerNotFoundException(id)
 }
