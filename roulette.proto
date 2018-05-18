@@ -55,3 +55,9 @@ message PlayerAmountUpdate {
   int64 player_id = 1;
   int32 amount = 2;
 }
+
+message Error {
+  string message = 1;
+  string context = 2;
+  string username = 3;
+}

@@ -1,6 +1,8 @@
 package com.goosvandenbekerom.roulette.dealer
 
 import com.google.protobuf.GeneratedMessageV3
+import com.goosvandenbekerom.roulette.domain.Request
+import com.goosvandenbekerom.roulette.domain.RouletteMessage
 import com.goosvandenbekerom.roulette.exception.UnsupportedMessageException
 import com.goosvandenbekerom.roulette.proto.RouletteProto.*
 import org.springframework.amqp.core.Message

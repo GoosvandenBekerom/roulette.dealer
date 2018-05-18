@@ -4,7 +4,12 @@ import com.google.protobuf.GeneratedMessageV3
 import com.goosvandenbekerom.roulette.core.BetType
 import com.goosvandenbekerom.roulette.core.Game
 import com.goosvandenbekerom.roulette.core.Player
+import com.goosvandenbekerom.roulette.core.exception.RouletteException
+import com.goosvandenbekerom.roulette.domain.ErrorMessage
+import com.goosvandenbekerom.roulette.domain.Request
+import com.goosvandenbekerom.roulette.domain.RouletteMessage
 import com.goosvandenbekerom.roulette.proto.RouletteProto.*
+import org.springframework.amqp.core.TopicExchange
 import org.springframework.amqp.rabbit.annotation.RabbitListener
 import org.springframework.amqp.rabbit.core.RabbitTemplate
 import org.springframework.beans.factory.annotation.Autowired
@@ -15,6 +20,7 @@ class MessageHandler {
     @Autowired lateinit var state: State
     @Autowired lateinit var game: Game
     @Autowired lateinit var rabbit: RabbitTemplate
+    @Autowired lateinit var exchange: TopicExchange
 
     @RabbitListener(queues = [RabbitConfig.queueName], containerFactory = "listenerFactory")
     fun receiveRequest(request: Request) {
@@ -28,29 +34,51 @@ class MessageHandler {
     // TODO: Add some kind of error handling, maybe send it back over the exchange?
 
     private fun handleNewPlayerRequest(request: Request) {
-        val msg = request.message as NewPlayerRequest
-        println("Received new player request: username = ${msg.name}")
-        val player = Player(msg.name, "")
-        val response = NewPlayerResponse.newBuilder()
-        response.id = state.connectPlayer(player)
-        println("Responding to player ${msg.name} with id ${response.id}")
-        reply(request, response.build())
+            val msg = request.message as NewPlayerRequest
+            println("Received new player request: username = ${msg.name}")
+            val player = Player(msg.name, "")
+            val response = NewPlayerResponse.newBuilder()
+            response.id = state.connectPlayer(player)
+            println("Responding to player ${msg.name} with id ${response.id}")
+            reply(request, response.build())
     }
 
     private fun handleBuyInRequest(request: Request) {
         val msg = request.message as BuyInRequest
         println("Received buyin request: player id = ${msg.playerId}, amount = ${msg.amount}")
         val player = state.getPlayerById(msg.playerId)
-        player.addChips(msg.amount)
-        replyPlayerAmountUpdate(request, msg.playerId, player.chipAmount)
+
+        try {
+            player.addChips(msg.amount)
+            replyPlayerAmountUpdate(request, msg.playerId, player.chipAmount)
+        } catch (e: RouletteException) {
+            val error = Error.newBuilder()
+            error.message = e.message
+            error.context = "BuyInRequest"
+            error.username = player.name
+            // TODO: send error to monitoring queue?
+            println("Sending error reply: ${error.message}")
+            reply(request, error.build())
+        }
     }
 
     private fun handleBetRequest(request: Request) {
         val msg = request.message as BetRequest
         println("Received bet request: player = ${msg.playerId}, amount = ${msg.amount}, type = ${msg.type}")
         val player = state.getPlayerById(request.message.playerId)
-        game.placeBet(player, msg.amount, protoToBetType(msg.type, *msg.numberList.toIntArray()))
-        replyPlayerAmountUpdate(request, msg.playerId, player.chipAmount)
+
+        try {
+            game.placeBet(player, msg.amount, protoToBetType(msg.type, *msg.numberList.toIntArray()))
+            replyPlayerAmountUpdate(request, msg.playerId, player.chipAmount)
+        } catch (e: RouletteException) {
+            val error = Error.newBuilder()
+            error.message = e.message
+            error.context = "BetRequest"
+            error.username = player.name
+            // TODO: send error to monitoring queue?
+            println("Sending error reply: ${error.message}")
+            reply(request, error.build())
+        }
     }
 
     private fun reply(request: Request, response: GeneratedMessageV3) {
