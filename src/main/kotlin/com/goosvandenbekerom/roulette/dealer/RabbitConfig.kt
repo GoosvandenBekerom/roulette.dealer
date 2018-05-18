@@ -1,6 +1,7 @@
 package com.goosvandenbekerom.roulette.dealer
 
 import org.springframework.amqp.core.BindingBuilder
+import org.springframework.amqp.core.FanoutExchange
 import org.springframework.amqp.core.Queue
 import org.springframework.amqp.core.TopicExchange
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory
@@ -16,6 +17,7 @@ class RabbitConfig {
     companion object {
         const val queueName = "roulette-dealer"
         const val topicExchangeName = "roulette-dealer-exchange"
+        const val fanoutExchangeName = "roulette-update-exchange"
         const val routingKey = "dealer"
         const val UPDATE_PLAYER_ROUTING_KEY = "game.update"
     }
@@ -24,11 +26,14 @@ class RabbitConfig {
     fun queue() = Queue(queueName, true)
 
     @Bean
-    fun exchange() = TopicExchange(topicExchangeName)
+    fun topicExchange() = TopicExchange(topicExchangeName)
+
+    @Bean
+    fun fanoutExchange() = FanoutExchange(fanoutExchangeName)
 
     @Bean
     fun binding(queue: Queue, topicExchange: TopicExchange)
-            = BindingBuilder.bind(queue).to(exchange()).with(routingKey)!!
+            = BindingBuilder.bind(queue).to(topicExchange()).with(routingKey)!!
 
     @Bean
     fun protoMessageConverter() = ProtoMessageConverter()
