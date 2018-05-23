@@ -1,6 +1,9 @@
 package com.goosvandenbekerom.roulette.dealer
 
 import com.goosvandenbekerom.roulette.core.Game
+import com.goosvandenbekerom.roulette.proto.RouletteProto
+import com.goosvandenbekerom.roulette.proto.RouletteProto.*
+import org.springframework.amqp.core.FanoutExchange
 import org.springframework.amqp.rabbit.core.RabbitTemplate
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.CommandLineRunner
@@ -12,6 +15,7 @@ import java.util.*
 class DealerScheduledTasks : CommandLineRunner {
     @Autowired lateinit var game: Game
     @Autowired lateinit var rabbit: RabbitTemplate
+    @Autowired lateinit var updateExchange: FanoutExchange
 
     override fun run(vararg args: String?) {
         game.openBetting()
@@ -21,16 +25,27 @@ class DealerScheduledTasks : CommandLineRunner {
     fun playGameIfReady() {
         if (game.bets.isEmpty()) return
 
-        // TODO: send betting closed update to exchange
+        game.closeBetting()
+        println("Broadcasting 'betting closed' update to connected players")
+        val closeBettingUpdate = UpdateBettingStatus.newBuilder()
+        closeBettingUpdate.status = false
+        rabbit.convertAndSend(updateExchange.name, RabbitConfig.UPDATE_PLAYER_ROUTING_KEY, closeBettingUpdate.build())
 
         val result = game.playAndReset()
-        // TODO: send result to exchange
+        println("Broadcasting new result: $result")
+
+        val resultUpdate = NewResult.newBuilder()
+        resultUpdate.number = result.number
+        resultUpdate.color = result.color.name
+        rabbit.convertAndSend(updateExchange.name, RabbitConfig.UPDATE_PLAYER_ROUTING_KEY, resultUpdate.build())
 
         // TODO: send updated chip amount to each connected player
-
-        println("New roulette result sent - $result")
+        // TODO: test this funtion!!!
 
         game.openBetting()
-        // TODO: send betting opened update to exchange
+        println("Broadcasting 'betting opened' update to connected players")
+        val openBettingUpdate = UpdateBettingStatus.newBuilder()
+        closeBettingUpdate.status = true
+        rabbit.convertAndSend(updateExchange.name, RabbitConfig.UPDATE_PLAYER_ROUTING_KEY, openBettingUpdate.build())
     }
 }
