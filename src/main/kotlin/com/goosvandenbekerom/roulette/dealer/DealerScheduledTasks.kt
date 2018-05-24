@@ -54,7 +54,7 @@ class DealerScheduledTasks : CommandLineRunner {
         game.openBetting()
         println("Broadcasting 'betting opened' update to connected players")
         val openBettingUpdate = UpdateBettingStatus.newBuilder()
-        closeBettingUpdate.status = true
+        openBettingUpdate.status = true
         rabbit.convertAndSend(updateExchange.name, RabbitConfig.UPDATE_PLAYER_ROUTING_KEY, openBettingUpdate.build())
     }
 
