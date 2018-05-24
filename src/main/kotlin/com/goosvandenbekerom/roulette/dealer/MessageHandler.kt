@@ -30,8 +30,6 @@ class MessageHandler {
         }
     }
 
-    // TODO: Add some kind of error handling, maybe send it back over the exchange?
-
     private fun handleNewPlayerRequest(request: Request) {
             val msg = request.message as NewPlayerRequest
             println("Received new player request: username = ${msg.name}")
@@ -51,13 +49,9 @@ class MessageHandler {
             player.addChips(msg.amount)
             replyPlayerAmountUpdate(request, msg.playerId, player.chipAmount)
         } catch (e: RouletteException) {
-            val error = Error.newBuilder()
-            error.message = e.message
-            error.context = "BuyInRequest"
-            error.username = player.name
-            // TODO: send error to monitoring queue?
-            println("Sending error reply: ${error.message}")
-            reply(request, error.build())
+            val response = handleError(e.message!!, "BuyInRequest", player.name)
+            println("Sending error reply: ${response.message}")
+            reply(request, response)
         }
     }
 
@@ -70,13 +64,9 @@ class MessageHandler {
             state.game.placeBet(player, msg.amount, protoToBetType(msg.type, *msg.numberList.toIntArray()))
             replyPlayerAmountUpdate(request, msg.playerId, player.chipAmount)
         } catch (e: RouletteException) {
-            val error = Error.newBuilder()
-            error.message = e.message
-            error.context = "BetRequest"
-            error.username = player.name
-            // TODO: send error to monitoring queue?
-            println("Sending error reply: ${error.message}")
-            reply(request, error.build())
+            val response = handleError(e.message!!, "BetRequest", player.name)
+            println("Sending error reply: ${response.message}")
+            reply(request, response)
         }
     }
 
@@ -90,6 +80,12 @@ class MessageHandler {
         response.amount = amount
         println("responding to player $playerId with amount update ($amount)")
         reply(request, response.build())
+    }
+
+    private fun handleError(message: String, context: String, username: String): Error {
+        val error = Error.newBuilder().setMessage(message).setContext(context).setUsername(username).build()
+        rabbit.convertAndSend(exchange.name, "error", error)
+        return error
     }
 
     private fun protoToBetType(type: BetRequest.BetType, vararg numbers: Int): BetType {
