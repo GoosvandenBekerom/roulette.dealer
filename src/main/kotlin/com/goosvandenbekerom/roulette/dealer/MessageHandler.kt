@@ -18,7 +18,6 @@ import org.springframework.stereotype.Component
 @Component
 class MessageHandler {
     @Autowired lateinit var state: State
-    @Autowired lateinit var game: Game
     @Autowired lateinit var rabbit: RabbitTemplate
     @Autowired lateinit var exchange: TopicExchange
 
@@ -68,7 +67,7 @@ class MessageHandler {
         val player = state.getPlayerById(request.message.playerId)
 
         try {
-            game.placeBet(player, msg.amount, protoToBetType(msg.type, *msg.numberList.toIntArray()))
+            state.game.placeBet(player, msg.amount, protoToBetType(msg.type, *msg.numberList.toIntArray()))
             replyPlayerAmountUpdate(request, msg.playerId, player.chipAmount)
         } catch (e: RouletteException) {
             val error = Error.newBuilder()

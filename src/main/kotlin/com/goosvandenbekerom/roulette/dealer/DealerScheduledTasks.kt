@@ -1,71 +1,63 @@
 package com.goosvandenbekerom.roulette.dealer
 
-import com.goosvandenbekerom.roulette.core.Game
-import com.goosvandenbekerom.roulette.proto.RouletteProto
+import com.google.protobuf.Message
 import com.goosvandenbekerom.roulette.proto.RouletteProto.*
-import org.springframework.amqp.core.FanoutExchange
 import org.springframework.amqp.rabbit.core.RabbitTemplate
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.CommandLineRunner
-import org.springframework.stereotype.Component
 import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.stereotype.Component
 import java.util.*
 
 @Component
 class DealerScheduledTasks : CommandLineRunner {
     companion object {
         private const val spinInterval: Long = 30000
-        private const val updateInterval: Long = 5000
     }
 
-    @Autowired lateinit var game: Game
+    @Autowired lateinit var state: State
     @Autowired lateinit var rabbit: RabbitTemplate
-    @Autowired lateinit var updateExchange: FanoutExchange
-
-    private var roundStartedTime = Date()
 
     override fun run(vararg args: String?) {
         // Open betting for the game when the application starts
-        game.openBetting()
+        state.game.openBetting()
     }
 
     @Scheduled(fixedRate = spinInterval, initialDelay = spinInterval)
     fun playGameIfReady() {
-        roundStartedTime = Date()
-
         if (!gameIsReady()) return
 
-        game.closeBetting()
-        println("Broadcasting 'betting closed' update to connected players")
-        val closeBettingUpdate = UpdateBettingStatus.newBuilder()
-        closeBettingUpdate.status = false
-        rabbit.convertAndSend(updateExchange.name, RabbitConfig.UPDATE_PLAYER_ROUTING_KEY, closeBettingUpdate.build())
+        state.game.closeBetting()
+        broadcastBetStatus()
 
-        val result = game.playAndReset()
+        // Cache players that bet this round
+        val betPlayers = state.game.bets.map { it.player }.toSet()
+
+        val result = state.game.playAndReset()
         println("Broadcasting new result: $result")
 
-        val resultUpdate = NewResult.newBuilder()
-        resultUpdate.number = result.number
-        resultUpdate.color = result.color.name
-        rabbit.convertAndSend(updateExchange.name, RabbitConfig.UPDATE_PLAYER_ROUTING_KEY, resultUpdate.build())
+        val resultUpdate = NewResult.newBuilder().setNumber(result.number).setColor(result.color.name)
+        broadcast(resultUpdate.build())
 
-        // TODO: send updated chip amount to each connected player
+        // Pay out
+        betPlayers.forEach {
+            val update = PlayerAmountUpdate.newBuilder().setPlayerId(state.getPlayerId(it)).setAmount(it.chipAmount)
+            rabbit.convertAndSend(RabbitConfig.topicExchangeName, "player.${update.playerId}", update.build())
+            println("Sent new amount update to betting player ${update.playerId}")
+        }
 
-        game.openBetting()
-        println("Broadcasting 'betting opened' update to connected players")
-        val openBettingUpdate = UpdateBettingStatus.newBuilder()
-        openBettingUpdate.status = true
-        rabbit.convertAndSend(updateExchange.name, RabbitConfig.UPDATE_PLAYER_ROUTING_KEY, openBettingUpdate.build())
+        state.game.openBetting()
+        broadcastBetStatus()
     }
 
-//    @Scheduled(fixedRate = updateInterval)
-//    fun updateClients() {
-//        if (roundStartedTime.time < Date().time - 25000) return // The round has more then 5 seconds left
-//        //TODO: if (!gameIsReady()) return
-//
-//        println("The current round will end in less then 5 seconds")
-//        // TODO: send update to clients
-//    }
+    private fun gameIsReady(): Boolean = !state.game.bets.isEmpty()
+    private fun broadcastBetStatus() {
+        val update = UpdateBettingStatus.newBuilder().setStatus(state.game.bettingOpen)
+        println("Broadcasting 'betting ${if (update.status) "opened" else "closed"}' update to connected players")
+        broadcast(update.build())
+    }
 
-    private fun gameIsReady(): Boolean = !game.bets.isEmpty()
+    private fun broadcast(message: Message) {
+        rabbit.convertAndSend(RabbitConfig.fanoutExchangeName, RabbitConfig.UPDATE_PLAYER_ROUTING_KEY, message)
+    }
 }

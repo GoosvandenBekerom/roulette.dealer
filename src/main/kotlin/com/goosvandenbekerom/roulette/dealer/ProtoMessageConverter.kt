@@ -6,6 +6,7 @@ import com.goosvandenbekerom.roulette.domain.RouletteMessage
 import com.goosvandenbekerom.roulette.exception.UnsupportedMessageException
 import com.goosvandenbekerom.roulette.proto.RouletteProto.*
 import org.springframework.amqp.core.Message
+import org.springframework.amqp.core.MessageDeliveryMode
 import org.springframework.amqp.core.MessageProperties
 import org.springframework.amqp.support.converter.AbstractMessageConverter
 import org.springframework.http.MediaType
@@ -20,6 +21,7 @@ class ProtoMessageConverter : AbstractMessageConverter() {
         properties.contentLength = bytes.size.toLong()
         properties.contentType = ProtoMessage.MEDIA_TYPE
         properties.setHeader(ProtoMessage.TYPE_KEY, obj.message::class.java.simpleName)
+        properties.deliveryMode = MessageDeliveryMode.NON_PERSISTENT
 
         if (!obj.correlationId.isEmpty())
             properties.correlationId = obj.correlationId
