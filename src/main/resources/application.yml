@@ -1,11 +1,15 @@
 spring:
-    rabbitmq:
-        host: www.goosvandenbekerom.nl
-        port: 5672
-        password: dealer
-        username: dealer
+  rabbitmq:
+    host: localhost
+    port: 5672
 management:
   endpoints:
     web:
       exposure:
         include: ["health", "info", "prometheus"]
+---
+spring:
+  profiles: docker-compose
+  rabbitmq:
+    host: rabbitmq
+    port: 5672
