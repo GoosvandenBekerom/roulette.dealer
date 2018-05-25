@@ -1,0 +1,11 @@
+spring:
+    rabbitmq:
+        host: www.goosvandenbekerom.nl
+        port: 5672
+        password: dealer
+        username: dealer
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ["health", "info", "prometheus"]
