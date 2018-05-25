@@ -2,10 +2,8 @@ package com.goosvandenbekerom.roulette.dealer
 
 import com.google.protobuf.GeneratedMessageV3
 import com.goosvandenbekerom.roulette.core.BetType
-import com.goosvandenbekerom.roulette.core.Game
 import com.goosvandenbekerom.roulette.core.Player
 import com.goosvandenbekerom.roulette.core.exception.RouletteException
-import com.goosvandenbekerom.roulette.domain.ErrorMessage
 import com.goosvandenbekerom.roulette.domain.Request
 import com.goosvandenbekerom.roulette.domain.RouletteMessage
 import com.goosvandenbekerom.roulette.proto.RouletteProto.*
